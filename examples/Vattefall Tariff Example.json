@@ -1,0 +1,63 @@
+[
+  {
+    "id": "8281aee3d45c3ada",
+    "type": "tab",
+    "label": "Vattenfall Tariff Sample Flow",
+    "disabled": false,
+    "info": "",
+    "env": []
+  },
+  {
+    "id": "29fef425b879edd6",
+    "type": "inject",
+    "z": "8281aee3d45c3ada",
+    "name": "Price Data",
+    "props": [
+      {
+        "p": "payload"
+      },
+      {
+        "p": "topic",
+        "vt": "str"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "{\"priceData\":[{\"start\":\"2023-08-01 21:00:00+02:00\",\"value\":0.5},{\"start\":\"2023-08-01 22:00:00+02:00\",\"value\":0.4},{\"start\":\"2023-08-01 23:00:00+02:00\",\"value\":0.3}]}",
+    "payloadType": "json",
+    "x": 200,
+    "y": 220,
+    "wires": [["3fe850634ef75d13"]]
+  },
+  {
+    "id": "3fe850634ef75d13",
+    "type": "vattenfall-tariff",
+    "z": "8281aee3d45c3ada",
+    "name": "Add Vattenfall Tariff",
+    "highTariff": ".5",
+    "lowTariff": ".2",
+    "x": 430,
+    "y": 220,
+    "wires": [["725823459ca8a2aa"]]
+  },
+  {
+    "id": "725823459ca8a2aa",
+    "type": "debug",
+    "z": "8281aee3d45c3ada",
+    "name": "Adjusted Price Data",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 680,
+    "y": 220,
+    "wires": []
+  }
+]
