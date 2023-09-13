@@ -1,4 +1,5 @@
-const isHighTariff = require('./istHighTariff');
+const { isHighTariff } = require("./isHighTariff");
+const { DateTime } = require("luxon");
 
 module.exports = function (RED) {
   function VattenfallTariffNode(config) {
@@ -8,60 +9,87 @@ module.exports = function (RED) {
     node.highTariff = parseFloat(config.highTariff);
 
     if (isNaN(node.highTariff)) {
-      node.error('High tariff is not a number');
-      node.status({ fill: 'red', shape: 'dot', text: 'High tariff is not a number' });
+      node.error("High tariff is not a number");
+      node.status({
+        fill: "red",
+        shape: "dot",
+        text: "High tariff is not a number",
+      });
       return;
     }
 
     node.lowTariff = parseFloat(config.lowTariff);
 
     if (isNaN(node.lowTariff)) {
-      node.error('Low tariff is not a number');
-      node.status({ fill: 'red', shape: 'ring', text: 'Low tariff is not a number' });
+      node.error("Low tariff is not a number");
+      node.status({
+        fill: "red",
+        shape: "ring",
+        text: "Low tariff is not a number",
+      });
       return;
     }
 
     /**
      * @param {{payload: { source:string, priceData:[{ value: number, start: string } ]  }}} msg
- 
      */
-    node.on('input', (msg) => {
+    node.on("input", (msg, send, done) => {
       if (!msg?.payload?.priceData) {
-        node.error('No price data', msg);
-        node.status({ fill: 'red', shape: 'dot', text: 'No price data' });
+        node.status({ fill: "red", shape: "dot", text: "No price data" });
+        done("No price data", msg);
         return;
       }
 
       if (!Array.isArray(msg?.payload?.priceData)) {
-        node.error('Price data is not an array');
         node.status(
-          { fill: 'red', shape: 'dot', text: 'Price data is not an array' },
-          msg
+          { fill: "red", shape: "dot", text: "Price data is not an array" },
+          msg,
         );
+        done("Price data is not an array");
         return;
       }
 
       const { payload } = msg;
       const { priceData } = payload;
 
+      if (
+        priceData.reduce((acc, elem) => {
+          return (
+            acc || isNaN(elem?.value) || !DateTime.fromISO(elem?.start).isValid
+          );
+        }, false)
+      ) {
+        node.status({ fill: "red", shape: "dot", text: "Invalid price data" });
+        done("Invalid price data", msg);
+        return;
+      }
+
       node.status({});
 
-      node.send({
-        ...msg,
-        payload: {
-          ...payload,
-
-          priceData: priceData.map(({ start, value, ...rest }) => ({
-            ...rest,
-            start,
-            value: isHighTariff(start)
-              ? value + node.highTariff
-              : value + node.lowTariff,
-          })),
-        },
-      });
+      Promise.all(
+        priceData.map(async ({ start, value, ...rest }) => ({
+          ...rest,
+          start,
+          value: (await isHighTariff(start))
+            ? Number(value) + node.highTariff
+            : Number(value) + node.lowTariff,
+        })),
+      )
+        .then((tarriffedPriceData) => {
+          send({
+            ...msg,
+            payload: {
+              ...payload,
+              priceData: tarriffedPriceData,
+            },
+          });
+          done();
+        })
+        .catch((err) => {
+          node.status({ fill: "red", shape: "dot", text: err.message });
+          done(err);
+        });
     });
   }
-
-  RED.nodes.registerType('vattenfall-tariff', VattenfallTariffNode);
+  RED.nodes.registerType("vattenfall-tariff", VattenfallTariffNode);
 };
